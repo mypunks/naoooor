@@ -1,33 +1,33 @@
 import React, { useEffect, useState } from "react";
-import { fetchStakedCount } from "../../lib/onchainStats";
+import { fetchRewardClaimStats } from "../../lib/onchainStats";
 import { STAKING_CONTRACT_ADDRESS } from "../../config/web3";
 
 type LoadState = "LOADING" | "LOADED" | "ERROR";
 
 /**
- * Live count of how many NFTs from the whole collection are currently
- * staked. The staking contract is the custodian of every staked NFT, so
- * its own balanceOf() on the NFT collection is exactly this count —
- * always in sync with the chain, no admin input needed.
+ * Live count of how many times staking reward tokens have been claimed —
+ * every claimRewards() call emits one RewardsClaimed per NFT it claimed
+ * for, read directly from on-chain logs (no manual counter to keep in
+ * sync).
  */
-export const TokenBurnCard: React.FC = () => {
+export const StakingRewardClaimsCard: React.FC = () => {
   const [state, setState] = useState<LoadState>("LOADING");
-  const [staked, setStaked] = useState<bigint>(BigInt(0));
+  const [count, setCount] = useState(0);
 
   useEffect(() => {
     let live = true;
     async function load() {
       try {
-        const count = await fetchStakedCount();
+        const stats = await fetchRewardClaimStats();
         if (!live) return;
-        setStaked(count);
+        setCount(stats.stakingClaims);
         setState("LOADED");
       } catch {
         if (live) setState("ERROR");
       }
     }
     load();
-    const interval = setInterval(load, 30_000);
+    const interval = setInterval(load, 60_000);
     return () => {
       live = false;
       clearInterval(interval);
@@ -37,20 +37,20 @@ export const TokenBurnCard: React.FC = () => {
   return (
     <div className="glass pixel-corners p-5 flex flex-col justify-between h-full">
       <div className="flex items-center gap-2">
-        <span className="h-1.5 w-1.5 rounded-full bg-neon" />
-        <span className="label-mono">NFTS STAKED</span>
+        <span className="h-1.5 w-1.5 rounded-full bg-cyan" />
+        <span className="label-mono">STAKING REWARDS CLAIMED</span>
       </div>
 
       {!STAKING_CONTRACT_ADDRESS ? (
         <p className="text-xs text-amber-400 mt-4">Staking contract not configured yet.</p>
       ) : state === "ERROR" ? (
-        <p className="text-xs text-amber-400 mt-4">Couldn&apos;t load staking stats right now.</p>
+        <p className="text-xs text-amber-400 mt-4">Couldn&apos;t load claim stats right now.</p>
       ) : (
         <div className="mt-4">
           <div className="font-display text-2xl sm:text-3xl font-bold text-neon tabular-nums">
-            {state === "LOADING" ? "···" : staked.toString()}
+            {state === "LOADING" ? "···" : count.toLocaleString()}
           </div>
-          <div className="label-mono mt-1">Live from chain · currently in the Vault</div>
+          <div className="label-mono mt-1">Reward payouts from the Vault</div>
         </div>
       )}
     </div>
